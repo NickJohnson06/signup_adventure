@@ -20,7 +20,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
   // Avatar picker
   final List<String> _avatars = const ['🤑', '🤠', '👽', '🤖', '🧟‍♂️'];
-  String _selectedAvatar = '🤑';
+  String _selectedAvatar = '';
 
   // Password strength state
   int _pwdScore = 0;            // 0..5
@@ -126,7 +126,7 @@ class _SignupScreenState extends State<SignupScreen> {
         final nameOk = _nameController.text.trim().isNotEmpty;
         final emailOk = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
             .hasMatch(_emailController.text.trim());
-        final passwordOk = _pwdScore >= 2; 
+        final passwordOk = _pwdScore >= 2;
         final dobOk = _dobController.text.trim().isNotEmpty;
         final avatarOk = _selectedAvatar.isNotEmpty;
 
@@ -144,7 +144,7 @@ class _SignupScreenState extends State<SignupScreen> {
           MaterialPageRoute(
             builder: (context) => SuccessScreen(
               userName: _nameController.text.trim(),
-              avatarEmoji: _selectedAvatar,
+              avatarEmoji: _selectedAvatar.isEmpty ? '😊' : _selectedAvatar,
               badges: badges,
             ),
           ),
@@ -155,14 +155,18 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Progress steps 
+    // Progress steps (uses strength for password)
     final nameOk = _nameController.text.trim().isNotEmpty;
     final emailOk =
         RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(_emailController.text.trim());
     final passwordOk = _pwdScore >= 2;
     final dobOk = _dobController.text.trim().isNotEmpty;
     final avatarOk = _selectedAvatar.isNotEmpty;
+
     final steps = [nameOk, emailOk, passwordOk, dobOk, avatarOk];
+
+    // Sequential field highlighting
+    final currentStepIndex = steps.indexWhere((s) => !s); // -1 when all done
 
     return Scaffold(
       appBar: AppBar(
@@ -209,75 +213,67 @@ class _SignupScreenState extends State<SignupScreen> {
                 const SizedBox(height: 30),
 
                 // Name
-                _buildTextField(
-                  controller: _nameController,
-                  label: 'Adventure Name',
-                  icon: Icons.person,
-                  validator: (v) =>
-                      (v == null || v.isEmpty) ? 'What should we call you on this adventure?' : null,
+                _bounceField(
+                  index: 0,
+                  isValid: nameOk,
+                  currentStepIndex: currentStepIndex,
+                  child: _buildTextField(
+                    controller: _nameController,
+                    label: 'Adventure Name',
+                    icon: Icons.person,
+                    isValid: nameOk,
+                    isHighlighted: currentStepIndex == 0,
+                    extraSuffix: _validCheckIcon(nameOk),
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'What should we call you on this adventure?' : null,
+                  ),
                 ),
                 const SizedBox(height: 20),
 
                 // Email
-                _buildTextField(
-                  controller: _emailController,
-                  label: 'Email Address',
-                  icon: Icons.email,
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'We need your email for adventure updates!';
-                    if (!v.contains('@') || !v.contains('.')) {
-                      return 'Oops! That doesn\'t look like a valid email';
-                    }
-                    return null;
-                  },
+                _bounceField(
+                  index: 1,
+                  isValid: emailOk,
+                  currentStepIndex: currentStepIndex,
+                  child: _buildTextField(
+                    controller: _emailController,
+                    label: 'Email Address',
+                    icon: Icons.email,
+                    isValid: emailOk,
+                    isHighlighted: currentStepIndex == 1,
+                    extraSuffix: _validCheckIcon(emailOk),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'We need your email for adventure updates!';
+                      if (!v.contains('@') || !v.contains('.')) {
+                        return 'Oops! That doesn\'t look like a valid email';
+                      }
+                      return null;
+                    },
+                  ),
                 ),
                 const SizedBox(height: 20),
 
                 // DOB
-                TextFormField(
-                  controller: _dobController,
-                  readOnly: true,
-                  onTap: _selectDate,
-                  decoration: InputDecoration(
-                    labelText: 'Date of Birth',
-                    prefixIcon: const Icon(Icons.calendar_today, color: Colors.deepPurple),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    filled: true,
-                    fillColor: Colors.grey[50],
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.date_range),
-                      onPressed: _selectDate,
-                    ),
+                _bounceField(
+                  index: 3,
+                  isValid: dobOk,
+                  currentStepIndex: currentStepIndex,
+                  child: _dobField(
+                    isValid: dobOk,
+                    isHighlighted: currentStepIndex == 3,
                   ),
-                  validator: (v) =>
-                      (v == null || v.isEmpty) ? 'When did your adventure begin?' : null,
                 ),
                 const SizedBox(height: 20),
 
                 // Password
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: !_isPasswordVisible,
-                  onChanged: _updatePasswordStrength,
-                  decoration: InputDecoration(
-                    labelText: 'Secret Password',
-                    prefixIcon: const Icon(Icons.lock, color: Colors.deepPurple),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    filled: true,
-                    fillColor: Colors.grey[50],
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                        color: Colors.deepPurple,
-                      ),
-                      onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
-                    ),
+                _bounceField(
+                  index: 2,
+                  isValid: passwordOk,
+                  currentStepIndex: currentStepIndex,
+                  child: _passwordField(
+                    isValid: passwordOk,
+                    isHighlighted: currentStepIndex == 2,
                   ),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Every adventurer needs a secret password!';
-                    if (v.length < 6) return 'Make it stronger! At least 6 characters';
-                    return null;
-                  },
                 ),
 
                 // Strength meter
@@ -315,32 +311,14 @@ class _SignupScreenState extends State<SignupScreen> {
                 const SizedBox(height: 20),
 
                 // Avatar picker
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Choose your avatar',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.deepPurple[800]),
+                _bounceField(
+                  index: 4,
+                  isValid: avatarOk,
+                  currentStepIndex: currentStepIndex,
+                  child: _avatarPicker(
+                    isValid: avatarOk,
+                    isHighlighted: currentStepIndex == 4,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _avatars.map((emoji) {
-                    final selected = _selectedAvatar == emoji;
-                    return ChoiceChip(
-                      label: Text(emoji, style: const TextStyle(fontSize: 18)),
-                      selected: selected,
-                      selectedColor: Colors.deepPurple[200],
-                      onSelected: (_) => setState(() => _selectedAvatar = emoji),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: selected ? Colors.deepPurple : Colors.deepPurple.shade100,
-                        ),
-                      ),
-                    );
-                  }).toList(),
                 ),
                 const SizedBox(height: 30),
 
@@ -381,22 +359,213 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
+  //  UI helpers
+
+  // Wraps a field with a "bounce"
+  Widget _bounceField({
+    required int index,
+    required bool isValid,
+    required int currentStepIndex,
+    required Widget child,
+  }) {
+   
+    final scale = isValid ? 1.02 : 1.0;
+    return AnimatedScale(
+      scale: scale,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.elasticOut,
+      child: child,
+    );
+  }
+
+  // Reusable text field with highlight + success styles
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
     required IconData icon,
+    required bool isValid,
+    required bool isHighlighted,
     required String? Function(String?) validator,
+    Widget? extraSuffix, // e.g., checkmark
   }) {
+    final baseFill = Colors.grey[50]!;
+    final highlightFill = Colors.deepPurple[50]!;
+    final fill = isHighlighted ? highlightFill : baseFill;
+
+    final borderColor = isValid
+        ? Colors.green
+        : (isHighlighted ? Colors.deepPurple : Colors.transparent);
+
     return TextFormField(
       controller: controller,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: Colors.deepPurple),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: borderColor, width: isValid ? 2 : (isHighlighted ? 1.5 : 0)),
+        ),
         filled: true,
-        fillColor: Colors.grey[50],
+        fillColor: fill,
+        suffixIcon: extraSuffix,
       ),
       validator: validator,
+    );
+  }
+
+  // DOB field with highlight + check
+  Widget _dobField({required bool isValid, required bool isHighlighted}) {
+    final baseFill = Colors.grey[50]!;
+    final highlightFill = Colors.deepPurple[50]!;
+    final fill = isHighlighted ? highlightFill : baseFill;
+
+    final borderColor = isValid
+        ? Colors.green
+        : (isHighlighted ? Colors.deepPurple : Colors.transparent);
+
+    return TextFormField(
+      controller: _dobController,
+      readOnly: true,
+      onTap: _selectDate,
+      decoration: InputDecoration(
+        labelText: 'Date of Birth',
+        prefixIcon: const Icon(Icons.calendar_today, color: Colors.deepPurple),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: borderColor, width: isValid ? 2 : (isHighlighted ? 1.5 : 0)),
+        ),
+        filled: true,
+        fillColor: fill,
+        suffixIcon: _validCheckIcon(isValid),
+        suffixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+      ),
+      validator: (v) =>
+          (v == null || v.isEmpty) ? 'When did your adventure begin?' : null,
+    );
+  }
+
+  // Password field with highlight + visibility toggle + checkmark
+  Widget _passwordField({required bool isValid, required bool isHighlighted}) {
+    final baseFill = Colors.grey[50]!;
+    final highlightFill = Colors.deepPurple[50]!;
+    final fill = isHighlighted ? highlightFill : baseFill;
+
+    final borderColor = isValid
+        ? Colors.green
+        : (isHighlighted ? Colors.deepPurple : Colors.transparent);
+
+    return TextFormField(
+      controller: _passwordController,
+      obscureText: !_isPasswordVisible,
+      onChanged: _updatePasswordStrength,
+      decoration: InputDecoration(
+        labelText: 'Secret Password',
+        prefixIcon: const Icon(Icons.lock, color: Colors.deepPurple),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: borderColor, width: isValid ? 2 : (isHighlighted ? 1.5 : 0)),
+        ),
+        filled: true,
+        fillColor: fill,
+        // Show both the eye toggle and the checkmark
+        suffixIcon: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isValid) _validCheckIcon(true),
+            IconButton(
+              icon: Icon(
+                _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                color: Colors.deepPurple,
+              ),
+              onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+            ),
+          ],
+        ),
+      ),
+      validator: (v) {
+        if (v == null || v.isEmpty) return 'Every adventurer needs a secret password!';
+        if (v.length < 6) return 'Make it stronger! At least 6 characters';
+        return null;
+      },
+    );
+  }
+
+  // Avatar picker with highlight + success ring + bounce handled by wrapper
+  Widget _avatarPicker({required bool isValid, required bool isHighlighted}) {
+    final ringColor = isValid
+        ? Colors.green
+        : (isHighlighted ? Colors.deepPurple : Colors.deepPurple.shade100);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Choose your avatar',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Colors.deepPurple[800],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: isHighlighted ? Colors.deepPurple[50] : null,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: ringColor, width: isValid ? 2 : 1),
+          ),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _avatars.map((emoji) {
+              final selected = _selectedAvatar == emoji;
+              return ChoiceChip(
+                label: Text(emoji, style: const TextStyle(fontSize: 18)),
+                selected: selected,
+                selectedColor: Colors.deepPurple[200],
+                onSelected: (_) => setState(() => _selectedAvatar = emoji),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: selected ? Colors.deepPurple : Colors.deepPurple.shade100,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 6),
+        if (isValid)
+          Row(
+            children: const [
+              Icon(Icons.check_circle, color: Colors.green, size: 18),
+              SizedBox(width: 6),
+              Text('Avatar set!', style: TextStyle(color: Colors.green)),
+            ],
+          ),
+      ],
+    );
+  }
+
+  // Animated checkmark that scales in when valid
+  Widget _validCheckIcon(bool show) {
+    return AnimatedScale(
+      scale: show ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutBack,
+      child: const Padding(
+        padding: EdgeInsets.only(right: 6.0),
+        child: Icon(Icons.check_circle, color: Colors.green, size: 20),
+      ),
     );
   }
 }

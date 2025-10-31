@@ -5,7 +5,7 @@ import 'package:confetti/confetti.dart';
 class SuccessScreen extends StatefulWidget {
   final String userName;
   final String avatarEmoji;
-  final List<String> badges; // NEW
+  final List<String> badges;
 
   const SuccessScreen({
     super.key,
