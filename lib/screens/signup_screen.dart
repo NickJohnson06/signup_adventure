@@ -18,9 +18,14 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
+  // 🔹 Avatar picker state
+  final List<String> _avatars = const ['🤑', '🤠', '👽', '🤖', '🧟‍♂️'];
+  String _selectedAvatar = '🤑';
+
   @override
   void initState() {
     super.initState();
+    // Recalculate progress live as the user types/selects
     _nameController.addListener(_recalc);
     _emailController.addListener(_recalc);
     _passwordController.addListener(_recalc);
@@ -76,8 +81,10 @@ class _SignupScreenState extends State<SignupScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => SuccessScreen(userName: _nameController.text.trim())
-,
+            builder: (context) => SuccessScreen(
+              userName: _nameController.text.trim(),
+              avatarEmoji: _selectedAvatar, // 🔹 pass avatar
+            ),
           ),
         );
       });
@@ -97,7 +104,8 @@ class _SignupScreenState extends State<SignupScreen> {
 
     final dobOk = _dobController.text.trim().isNotEmpty;
 
-    final steps = [nameOk, emailOk, passwordOk, dobOk];
+    final avatarOk = _selectedAvatar.isNotEmpty;
+    final steps = [nameOk, emailOk, passwordOk, dobOk, avatarOk];
 
     return Scaffold(
       appBar: AppBar(
@@ -234,6 +242,42 @@ class _SignupScreenState extends State<SignupScreen> {
                     }
                     return null;
                   },
+                ),
+                const SizedBox(height: 20),
+
+                // Avatar Picker
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Choose your avatar',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.deepPurple[800],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _avatars.map((emoji) {
+                    final selected = _selectedAvatar == emoji;
+                    return ChoiceChip(
+                      label: Text(emoji, style: const TextStyle(fontSize: 18)),
+                      selected: selected,
+                      selectedColor: Colors.deepPurple[200],
+                      onSelected: (_) {
+                        setState(() => _selectedAvatar = emoji);
+                      },
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: selected ? Colors.deepPurple : Colors.deepPurple.shade100,
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 30),
 
