@@ -18,20 +18,19 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
-  // 🔹 Avatar picker state
+  // Avatar picker
   final List<String> _avatars = const ['🤑', '🤠', '👽', '🤖', '🧟‍♂️'];
   String _selectedAvatar = '🤑';
 
-  // 🔹 Password strength state
+  // Password strength state
   int _pwdScore = 0;            // 0..5
-  double _pwdStrength = 0;      // 0..1 (for the bar)
+  double _pwdStrength = 0;      // 0..1
   String _pwdLabel = 'Very Weak';
   Color _pwdColor = Colors.red;
 
   @override
   void initState() {
     super.initState();
-    // Recalculate progress live as the user types/selects
     _nameController.addListener(_recalc);
     _emailController.addListener(_recalc);
     _passwordController.addListener(() {
@@ -59,7 +58,6 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
-  // Date Picker Function
   Future<void> _selectDate() async {
     DateTime? picked = await showDatePicker(
       context: context,
@@ -74,7 +72,7 @@ class _SignupScreenState extends State<SignupScreen> {
     }
   }
 
-  // 🔧 Password strength evaluation (0..5) + label/color
+  // Password strength evaluation (0..5) + label/color
   void _updatePasswordStrength(String input) {
     final lengthOK = input.length >= 8;
     final hasLower = RegExp(r'[a-z]').hasMatch(input);
@@ -89,7 +87,6 @@ class _SignupScreenState extends State<SignupScreen> {
     if (hasDigit) score++;
     if (hasSymbol) score++;
 
-    // Map score → label/color and normalized strength for the bar
     String label;
     Color color;
     if (score <= 1) {
@@ -119,16 +116,28 @@ class _SignupScreenState extends State<SignupScreen> {
 
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+      setState(() => _isLoading = true);
 
-      // Simulate API call
       Future.delayed(const Duration(seconds: 2), () {
         if (!mounted) return;
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
+
+        // Badge eligibility
+        final nameOk = _nameController.text.trim().isNotEmpty;
+        final emailOk = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+            .hasMatch(_emailController.text.trim());
+        final passwordOk = _pwdScore >= 2; 
+        final dobOk = _dobController.text.trim().isNotEmpty;
+        final avatarOk = _selectedAvatar.isNotEmpty;
+
+        final isProfileComplete = nameOk && emailOk && passwordOk && dobOk && avatarOk;
+        final isStrongPassword = _pwdScore >= 4;
+        final isEarlyBird = DateTime.now().hour < 12;
+
+        final List<String> badges = [];
+        if (isStrongPassword) badges.add('Strong Password Master');
+        if (isEarlyBird) badges.add('The Early Bird Special');
+        if (isProfileComplete) badges.add('Profile Completer');
 
         Navigator.pushReplacement(
           context,
@@ -136,6 +145,7 @@ class _SignupScreenState extends State<SignupScreen> {
             builder: (context) => SuccessScreen(
               userName: _nameController.text.trim(),
               avatarEmoji: _selectedAvatar,
+              badges: badges,
             ),
           ),
         );
@@ -145,21 +155,14 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ---- Progress steps (now use strength for password) ----
+    // Progress steps 
     final nameOk = _nameController.text.trim().isNotEmpty;
-
-    final emailText = _emailController.text.trim();
     final emailOk =
-        RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(emailText);
-
-    // consider password "OK" when strength >= 2 (Weak or better)
+        RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(_emailController.text.trim());
     final passwordOk = _pwdScore >= 2;
-
     final dobOk = _dobController.text.trim().isNotEmpty;
-
     final avatarOk = _selectedAvatar.isNotEmpty;
     final steps = [nameOk, emailOk, passwordOk, dobOk, avatarOk];
-    // --------------------------------------------------------
 
     return Scaffold(
       appBar: AppBar(
@@ -174,11 +177,11 @@ class _SignupScreenState extends State<SignupScreen> {
             key: _formKey,
             child: Column(
               children: [
-                // Progress bar + milestone message
+                // Progress bar + milestone
                 ProgressTracker(steps: steps),
                 const SizedBox(height: 16),
 
-                // Animated Form Header
+                // Header
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 500),
                   curve: Curves.easeInOut,
@@ -205,30 +208,24 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 30),
 
-                // Name Field
+                // Name
                 _buildTextField(
                   controller: _nameController,
                   label: 'Adventure Name',
                   icon: Icons.person,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'What should we call you on this adventure?';
-                    }
-                    return null;
-                  },
+                  validator: (v) =>
+                      (v == null || v.isEmpty) ? 'What should we call you on this adventure?' : null,
                 ),
                 const SizedBox(height: 20),
 
-                // Email Field
+                // Email
                 _buildTextField(
                   controller: _emailController,
                   label: 'Email Address',
                   icon: Icons.email,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'We need your email for adventure updates!';
-                    }
-                    if (!value.contains('@') || !value.contains('.')) {
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'We need your email for adventure updates!';
+                    if (!v.contains('@') || !v.contains('.')) {
                       return 'Oops! That doesn\'t look like a valid email';
                     }
                     return null;
@@ -236,7 +233,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // DOB w/Calendar
+                // DOB
                 TextFormField(
                   controller: _dobController,
                   readOnly: true,
@@ -244,9 +241,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   decoration: InputDecoration(
                     labelText: 'Date of Birth',
                     prefixIcon: const Icon(Icons.calendar_today, color: Colors.deepPurple),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     filled: true,
                     fillColor: Colors.grey[50],
                     suffixIcon: IconButton(
@@ -254,26 +249,20 @@ class _SignupScreenState extends State<SignupScreen> {
                       onPressed: _selectDate,
                     ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'When did your adventure begin?';
-                    }
-                    return null;
-                  },
+                  validator: (v) =>
+                      (v == null || v.isEmpty) ? 'When did your adventure begin?' : null,
                 ),
                 const SizedBox(height: 20),
 
-                // Password Field w/ Toggle
+                // Password
                 TextFormField(
                   controller: _passwordController,
                   obscureText: !_isPasswordVisible,
-                  onChanged: _updatePasswordStrength, // 🔹 live updates
+                  onChanged: _updatePasswordStrength,
                   decoration: InputDecoration(
                     labelText: 'Secret Password',
                     prefixIcon: const Icon(Icons.lock, color: Colors.deepPurple),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     filled: true,
                     fillColor: Colors.grey[50],
                     suffixIcon: IconButton(
@@ -281,25 +270,17 @@ class _SignupScreenState extends State<SignupScreen> {
                         _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
                         color: Colors.deepPurple,
                       ),
-                      onPressed: () {
-                        setState(() {
-                          _isPasswordVisible = !_isPasswordVisible;
-                        });
-                      },
+                      onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
                     ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Every adventurer needs a secret password!';
-                    }
-                    if (value.length < 6) {
-                      return 'Make it stronger! At least 6 characters';
-                    }
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Every adventurer needs a secret password!';
+                    if (v.length < 6) return 'Make it stronger! At least 6 characters';
                     return null;
                   },
                 ),
 
-                // 🔹 Password strength meter (bar + label)
+                // Strength meter
                 const SizedBox(height: 10),
                 TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0, end: _pwdStrength),
@@ -322,13 +303,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              _pwdLabel,
-                              style: TextStyle(
-                                color: _pwdColor,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                            Text(_pwdLabel, style: TextStyle(color: _pwdColor, fontWeight: FontWeight.w700)),
                             Text('${(_pwdStrength * 100).round()}%'),
                           ],
                         ),
@@ -339,16 +314,12 @@ class _SignupScreenState extends State<SignupScreen> {
 
                 const SizedBox(height: 20),
 
-                // 🔹 Avatar Picker
+                // Avatar picker
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Choose your avatar',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.deepPurple[800],
-                    ),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.deepPurple[800]),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -361,9 +332,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       label: Text(emoji, style: const TextStyle(fontSize: 18)),
                       selected: selected,
                       selectedColor: Colors.deepPurple[200],
-                      onSelected: (_) {
-                        setState(() => _selectedAvatar = emoji);
-                      },
+                      onSelected: (_) => setState(() => _selectedAvatar = emoji),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(
@@ -375,7 +344,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 30),
 
-                // Submit Button w/ Loading Animation
+                // Submit
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   width: _isLoading ? 60 : double.infinity,
@@ -390,19 +359,14 @@ class _SignupScreenState extends State<SignupScreen> {
                           onPressed: _submitForm,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.deepPurple,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             elevation: 5,
                           ),
                           child: const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(
-                                'Start My Adventure',
-                                style: TextStyle(fontSize: 18, color: Colors.white),
-                              ),
+                              Text('Start My Adventure', style: TextStyle(fontSize: 18, color: Colors.white)),
                               SizedBox(width: 10),
                               Icon(Icons.rocket_launch, color: Colors.white),
                             ],
@@ -428,9 +392,7 @@ class _SignupScreenState extends State<SignupScreen> {
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: Colors.deepPurple),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
         fillColor: Colors.grey[50],
       ),
