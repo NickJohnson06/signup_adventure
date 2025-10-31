@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'success_screen.dart';
+import '../widgets/progress_tracker.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -18,7 +19,25 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _nameController.addListener(_recalc);
+    _emailController.addListener(_recalc);
+    _passwordController.addListener(_recalc);
+    _dobController.addListener(_recalc);
+  }
+
+  void _recalc() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    _nameController.removeListener(_recalc);
+    _emailController.removeListener(_recalc);
+    _passwordController.removeListener(_recalc);
+    _dobController.removeListener(_recalc);
+
     _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -57,7 +76,8 @@ class _SignupScreenState extends State<SignupScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => SuccessScreen(userName: _nameController.text),
+            builder: (context) => SuccessScreen(userName: _nameController.text.trim())
+,
           ),
         );
       });
@@ -66,6 +86,19 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final nameOk = _nameController.text.trim().isNotEmpty;
+
+    final emailText = _emailController.text.trim();
+    final emailOk =
+        RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(emailText);
+
+    final pwdText = _passwordController.text;
+    final passwordOk = pwdText.length >= 6;
+
+    final dobOk = _dobController.text.trim().isNotEmpty;
+
+    final steps = [nameOk, emailOk, passwordOk, dobOk];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Your Account 🎉'),
@@ -79,6 +112,10 @@ class _SignupScreenState extends State<SignupScreen> {
             key: _formKey,
             child: Column(
               children: [
+                // Progress bar + milestone message
+                ProgressTracker(steps: steps),
+                const SizedBox(height: 16),
+
                 // Animated Form Header
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 500),
