@@ -22,13 +22,22 @@ class _SignupScreenState extends State<SignupScreen> {
   final List<String> _avatars = const ['🤑', '🤠', '👽', '🤖', '🧟‍♂️'];
   String _selectedAvatar = '🤑';
 
+  // 🔹 Password strength state
+  int _pwdScore = 0;            // 0..5
+  double _pwdStrength = 0;      // 0..1 (for the bar)
+  String _pwdLabel = 'Very Weak';
+  Color _pwdColor = Colors.red;
+
   @override
   void initState() {
     super.initState();
     // Recalculate progress live as the user types/selects
     _nameController.addListener(_recalc);
     _emailController.addListener(_recalc);
-    _passwordController.addListener(_recalc);
+    _passwordController.addListener(() {
+      _recalc();
+      _updatePasswordStrength(_passwordController.text);
+    });
     _dobController.addListener(_recalc);
   }
 
@@ -65,6 +74,49 @@ class _SignupScreenState extends State<SignupScreen> {
     }
   }
 
+  // 🔧 Password strength evaluation (0..5) + label/color
+  void _updatePasswordStrength(String input) {
+    final lengthOK = input.length >= 8;
+    final hasLower = RegExp(r'[a-z]').hasMatch(input);
+    final hasUpper = RegExp(r'[A-Z]').hasMatch(input);
+    final hasDigit = RegExp(r'\d').hasMatch(input);
+    final hasSymbol = RegExp(r'[^A-Za-z0-9]').hasMatch(input);
+
+    int score = 0;
+    if (lengthOK) score++;
+    if (hasLower) score++;
+    if (hasUpper) score++;
+    if (hasDigit) score++;
+    if (hasSymbol) score++;
+
+    // Map score → label/color and normalized strength for the bar
+    String label;
+    Color color;
+    if (score <= 1) {
+      label = 'Very Weak';
+      color = Colors.red;
+    } else if (score == 2) {
+      label = 'Weak';
+      color = Colors.orange;
+    } else if (score == 3) {
+      label = 'Fair';
+      color = Colors.amber;
+    } else if (score == 4) {
+      label = 'Good';
+      color = Colors.lightGreen;
+    } else {
+      label = 'Strong';
+      color = Colors.green;
+    }
+
+    setState(() {
+      _pwdScore = score;
+      _pwdLabel = label;
+      _pwdColor = color;
+      _pwdStrength = (score / 5).clamp(0, 1);
+    });
+  }
+
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -83,7 +135,7 @@ class _SignupScreenState extends State<SignupScreen> {
           MaterialPageRoute(
             builder: (context) => SuccessScreen(
               userName: _nameController.text.trim(),
-              avatarEmoji: _selectedAvatar, // 🔹 pass avatar
+              avatarEmoji: _selectedAvatar,
             ),
           ),
         );
@@ -93,19 +145,21 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ---- Progress steps (now use strength for password) ----
     final nameOk = _nameController.text.trim().isNotEmpty;
 
     final emailText = _emailController.text.trim();
     final emailOk =
         RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(emailText);
 
-    final pwdText = _passwordController.text;
-    final passwordOk = pwdText.length >= 6;
+    // consider password "OK" when strength >= 2 (Weak or better)
+    final passwordOk = _pwdScore >= 2;
 
     final dobOk = _dobController.text.trim().isNotEmpty;
 
     final avatarOk = _selectedAvatar.isNotEmpty;
     final steps = [nameOk, emailOk, passwordOk, dobOk, avatarOk];
+    // --------------------------------------------------------
 
     return Scaffold(
       appBar: AppBar(
@@ -213,6 +267,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 TextFormField(
                   controller: _passwordController,
                   obscureText: !_isPasswordVisible,
+                  onChanged: _updatePasswordStrength, // 🔹 live updates
                   decoration: InputDecoration(
                     labelText: 'Secret Password',
                     prefixIcon: const Icon(Icons.lock, color: Colors.deepPurple),
@@ -243,9 +298,48 @@ class _SignupScreenState extends State<SignupScreen> {
                     return null;
                   },
                 ),
+
+                // 🔹 Password strength meter (bar + label)
+                const SizedBox(height: 10),
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: _pwdStrength),
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, _) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: LinearProgressIndicator(
+                            value: value,
+                            minHeight: 8,
+                            backgroundColor: Colors.deepPurple.withOpacity(0.15),
+                            color: Color.lerp(Colors.red, Colors.green, value),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _pwdLabel,
+                              style: TextStyle(
+                                color: _pwdColor,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text('${(_pwdStrength * 100).round()}%'),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+
                 const SizedBox(height: 20),
 
-                // Avatar Picker
+                // 🔹 Avatar Picker
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
